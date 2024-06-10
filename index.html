@@ -6,9 +6,10 @@
   </head>
   <body>
     <input type="file" id="file-input" />
-    <input placeholder="Transpose" type="number" id="transpose" value="2">
+    <input placeholder="Transpose" type="number" id="transpose" value="2" />
     <input type="button" onclick="adicionaCifras()" value="Transpor Cifras" />
     <input type="button" onclick="salvarPDF()" value="Salvar PDF" />
+    <input type="button" onclick="carregaArquivo()" value="Recarregar Arquivo" />
     <a target="_blank" href="musica_exemplo.pdf">Baixar PDF Exemplo</a>
     <div id="pdf-render"></div>
 
@@ -27,62 +28,67 @@
       var canvas = null;
       var canvasContext = null;
       var pdfPage = null;
+      var file = null;
       // Carregar o PDF
       document
         .getElementById("file-input")
         .addEventListener("change", (event) => {
-          const file = event.target.files[0];
-          if (file.type !== "application/pdf") {
-            console.error(file.name, "não é um PDF.");
-            return;
-          }
+          file = event.target.files[0];
+          carregaArquivo();
+        });
 
-          const fileReader = new FileReader();
+      function carregaArquivo() {
+        if (file.type !== "application/pdf") {
+          console.error(file.name, "não é um PDF.");
+          return;
+        }
 
-          fileReader.onload = function () {
-            const typedarray = new Uint8Array(this.result);
+        const fileReader = new FileReader();
 
-            pdfjsLib.getDocument(typedarray).promise.then((pdf) => {
-              console.log("PDF carregado");
+        fileReader.onload = function () {
+          const typedarray = new Uint8Array(this.result);
 
-              // Obtém a página do PDF
-              pdf.getPage(1).then((page) => {
-                pdfPage = page;
-                const scale = 1.5;
-                const viewport = page.getViewport({ scale: scale });
+          pdfjsLib.getDocument(typedarray).promise.then((pdf) => {
+            console.log("PDF carregado");
 
-                // Prepara o canvas para renderizar o PDF
-                canvas = document.createElement("canvas");
-                const context = canvas.getContext("2d");
-                canvas.height = viewport.height;
-                canvas.width = viewport.width;
+            // Obtém a página do PDF
+            pdf.getPage(1).then((page) => {
+              pdfPage = page;
+              const scale = 1.5;
+              const viewport = page.getViewport({ scale: scale });
 
-                // Renderiza o PDF
-                const renderContext = {
-                  canvasContext: context,
-                  viewport: viewport,
-                };
+              // Prepara o canvas para renderizar o PDF
+              canvas = document.createElement("canvas");
+              const context = canvas.getContext("2d");
+              canvas.height = viewport.height;
+              canvas.width = viewport.width;
 
-                // Renderiza o PDF
-                page.render(renderContext).promise.then(() => {
-                  console.log("PDF renderizado");
-                });
+              // Renderiza o PDF
+              const renderContext = {
+                canvasContext: context,
+                viewport: viewport,
+              };
 
-                // Adiciona o canvas ao DOM
-                document.getElementById("pdf-render").innerHTML = "";
-                document.getElementById("pdf-render").appendChild(canvas);
+              // Renderiza o PDF
+              page.render(renderContext).promise.then(() => {
+                console.log("PDF renderizado");
+              });
 
-                // Extrai o texto da página do PDF
-                page.getTextContent().then(function (textContent) {
-                  canvasContext = context;
-                  canvasContext.save();
-                });
+              // Adiciona o canvas ao DOM
+              document.getElementById("pdf-render").innerHTML = "";
+              document.getElementById("pdf-render").appendChild(canvas);
+
+              // Extrai o texto da página do PDF
+              page.getTextContent().then(function (textContent) {
+                canvasContext = context;
+                canvasContext.save();
               });
             });
-          };
+          });
+        };
 
-          fileReader.readAsArrayBuffer(file);
-        });
+        fileReader.readAsArrayBuffer(file);
+      }
     </script>
     <script>
       function adicionaCifras() {
@@ -119,22 +125,25 @@
 
             // transpose
             const song = chordParser.parse(textItem.str);
-            var songTransposed = song.transpose(document.getElementById("transpose").value);
+            var songTransposed = song.transpose(
+              document.getElementById("transpose").value
+            );
             var acordes = songTransposed.lines[0].items[0].chords;
             if (acordes != "") {
-                let finalString = "";
-                let acordesLista = textItem.str.split(" ");
-                let currentChordIndex = 0;
-                for (let index = 0; index < acordesLista.length; index++) {
-                    const element = acordesLista[index];
-                    if (element == '') {
-                        finalString += ' ';
-                    } else {
-                        finalString += songTransposed.lines[0].items[currentChordIndex].chords + ' ';
-                        currentChordIndex++;
-                    }
-                    
+              let finalString = "";
+              let acordesLista = textItem.str.split(" ");
+              let currentChordIndex = 0;
+              for (let index = 0; index < acordesLista.length; index++) {
+                const element = acordesLista[index];
+                if (element == "") {
+                  finalString += " ";
+                } else {
+                  finalString +=
+                    (songTransposed.lines[0].items[currentChordIndex]?.chords ??
+                      "") + " ";
+                  currentChordIndex++;
                 }
+              }
               textItem.str = finalString;
               let isRect = false;
               adicionaCifra(canvasContext, font, fillStyle, textItem, isRect);
@@ -163,7 +172,7 @@
           // Insere um retângulo
           context.fillStyle = "white";
           context.beginPath(); // Start a new path
-          context.rect(0, -12, width, height);
+          context.rect(0, -12, width + 3, height);
           context.fill();
         } else {
           // Define as propriedades do texto
@@ -177,24 +186,24 @@
       }
     </script>
     <script>
-        function salvarPDF() {
-            const { jsPDF } = window.jspdf;
-            // const canvas = document.getElementById(canvasId);
-            const imageData = canvas.toDataURL('image/png');
-          
-            // Cria uma instância do jsPDF
-            const pdf = new jsPDF({
-              orientation: 'portrait',
-              unit: 'px',
-              format: [canvas.width, canvas.height]
-            });
-          
-            // Adiciona a imagem do canvas ao PDF
-            pdf.addImage(imageData, 'PNG', 0, 0, canvas.width, canvas.height);
-          
-            // Salva o PDF
-            pdf.save('musica.pdf');
-          }
+      function salvarPDF() {
+        const { jsPDF } = window.jspdf;
+        // const canvas = document.getElementById(canvasId);
+        const imageData = canvas.toDataURL("image/png");
+
+        // Cria uma instância do jsPDF
+        const pdf = new jsPDF({
+          orientation: "portrait",
+          unit: "px",
+          format: [canvas.width, canvas.height],
+        });
+
+        // Adiciona a imagem do canvas ao PDF
+        pdf.addImage(imageData, "PNG", 0, 0, canvas.width, canvas.height);
+
+        // Salva o PDF
+        pdf.save("musica.pdf");
+      }
     </script>
   </body>
 </html>
