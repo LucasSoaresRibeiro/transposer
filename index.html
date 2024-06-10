@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="pt">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Leitor de PDF com Texto Sobreposto e Caixa de Texto</title>
+  </head>
+  <body>
+    <input type="file" id="file-input" />
+    <input placeholder="Transpose" type="number" id="transpose" value="2">
+    <input type="button" onclick="adicionaCifras()" value="Transpor Cifras" />
+    <input type="button" onclick="salvarPDF()" value="Salvar PDF" />
+    <div id="pdf-render"></div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.6.347/pdf.min.js"></script>
+    <script src="chordsheetjs.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.3.2/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.4.0/jspdf.umd.min.js"></script>
+
+    <script>
+      // ChordSheetJS is available in global namespace now
+      const chordParser = new ChordSheetJS.ChordsOverWordsParser();
+      const chordFormatter = new ChordSheetJS.TextFormatter();
+    </script>
+
+    <script>
+      var canvas = null;
+      var canvasContext = null;
+      var pdfPage = null;
+      // Carregar o PDF
+      document
+        .getElementById("file-input")
+        .addEventListener("change", (event) => {
+          const file = event.target.files[0];
+          if (file.type !== "application/pdf") {
+            console.error(file.name, "não é um PDF.");
+            return;
+          }
+
+          const fileReader = new FileReader();
+
+          fileReader.onload = function () {
+            const typedarray = new Uint8Array(this.result);
+
+            pdfjsLib.getDocument(typedarray).promise.then((pdf) => {
+              console.log("PDF carregado");
+
+              // Obtém a página do PDF
+              pdf.getPage(1).then((page) => {
+                pdfPage = page;
+                const scale = 1.5;
+                const viewport = page.getViewport({ scale: scale });
+
+                // Prepara o canvas para renderizar o PDF
+                canvas = document.createElement("canvas");
+                const context = canvas.getContext("2d");
+                canvas.height = viewport.height;
+                canvas.width = viewport.width;
+
+                // Renderiza o PDF
+                const renderContext = {
+                  canvasContext: context,
+                  viewport: viewport,
+                };
+
+                // Renderiza o PDF
+                page.render(renderContext).promise.then(() => {
+                  console.log("PDF renderizado");
+                });
+
+                // Adiciona o canvas ao DOM
+                document.getElementById("pdf-render").innerHTML = "";
+                document.getElementById("pdf-render").appendChild(canvas);
+
+                // Extrai o texto da página do PDF
+                page.getTextContent().then(function (textContent) {
+                  canvasContext = context;
+                  canvasContext.save();
+                });
+              });
+            });
+          };
+
+          fileReader.readAsArrayBuffer(file);
+        });
+    </script>
+    <script>
+      function adicionaCifras() {
+        pdfPage.getTextContent().then(function (textContent) {
+          // Concatena o texto de todos os itens
+          let textItems = textContent.items;
+          let finalString = "";
+
+          for (let i = 0; i < textItems.length; i++) {
+            let textItem = textItems[i];
+            finalString += textItem.str + " ";
+
+            // Define a fonte e o tamanho do texto conforme o original
+            const font =
+              "bold " + textItem.height + "px" + " " + textItem.fontName;
+            const fillStyle = "blue";
+
+            // transpose
+            const song = chordParser.parse(textItem.str);
+            var acordes = song.lines[0].items[0].chords;
+            if (acordes != "") {
+              let isRect = true;
+              adicionaCifra(canvasContext, font, fillStyle, textItem, isRect);
+            }
+          }
+          for (let i = 0; i < textItems.length; i++) {
+            let textItem = textItems[i];
+            finalString += textItem.str + " ";
+
+            // Define a fonte e o tamanho do texto conforme o original
+            const font =
+              "bold " + textItem.height + "px" + " " + textItem.fontName;
+            const fillStyle = "blue";
+
+            // transpose
+            const song = chordParser.parse(textItem.str);
+            var songTransposed = song.transpose(document.getElementById("transpose").value);
+            var acordes = songTransposed.lines[0].items[0].chords;
+            if (acordes != "") {
+                let finalString = "";
+                let acordesLista = textItem.str.split(" ");
+                let currentChordIndex = 0;
+                for (let index = 0; index < acordesLista.length; index++) {
+                    const element = acordesLista[index];
+                    if (element == '') {
+                        finalString += ' ';
+                    } else {
+                        finalString += songTransposed.lines[0].items[currentChordIndex].chords + ' ';
+                        currentChordIndex++;
+                    }
+                    
+                }
+              textItem.str = finalString;
+              let isRect = false;
+              adicionaCifra(canvasContext, font, fillStyle, textItem, isRect);
+            }
+          }
+        });
+      }
+
+      function adicionaCifra(context, font, fillStyle, textItem, isRect) {
+        // Salva o estado atual do contexto
+        context.save();
+
+        let text = textItem.str;
+        const x = textItem.transform[4];
+        const y = textItem.transform[5];
+        const width = textItem.width;
+        const height = textItem.height;
+
+        // Move o contexto para a posição onde o texto será desenhado
+        // context.resetTransform();
+        context.translate(x, y);
+        context.scale(-1, 1);
+        context.rotate((180 * Math.PI) / 180);
+
+        if (isRect) {
+          // Insere um retângulo
+          context.fillStyle = "white";
+          context.beginPath(); // Start a new path
+          context.rect(0, -12, width, height);
+          context.fill();
+        } else {
+          // Define as propriedades do texto
+          context.font = font;
+          context.fillStyle = fillStyle;
+          context.fillText(text, 0, 0, width + 10);
+        }
+
+        // Restaura o estado original do contexto
+        context.restore();
+      }
+    </script>
+    <script>
+        function salvarPDF() {
+            const { jsPDF } = window.jspdf;
+            // const canvas = document.getElementById(canvasId);
+            const imageData = canvas.toDataURL('image/png');
+          
+            // Cria uma instância do jsPDF
+            const pdf = new jsPDF({
+              orientation: 'portrait',
+              unit: 'px',
+              format: [canvas.width, canvas.height]
+            });
+          
+            // Adiciona a imagem do canvas ao PDF
+            pdf.addImage(imageData, 'PNG', 0, 0, canvas.width, canvas.height);
+          
+            // Salva o PDF
+            pdf.save('musica.pdf');
+          }
+    </script>
+  </body>
+</html>
