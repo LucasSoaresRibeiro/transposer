@@ -2,13 +2,14 @@
 <html lang="pt">
   <head>
     <meta charset="UTF-8" />
-    <title>Leitor de PDF com Texto Sobreposto e Caixa de Texto</title>
+    <title>PDF Transposer</title>
   </head>
   <body>
     <input type="file" id="file-input" />
     <input placeholder="Transpose" type="number" id="transpose" value="2">
     <input type="button" onclick="adicionaCifras()" value="Transpor Cifras" />
     <input type="button" onclick="salvarPDF()" value="Salvar PDF" />
+    <a target="_blank" href="musica_exemplo.pdf">Baixar PDF Exemplo</a>
     <div id="pdf-render"></div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.6.347/pdf.min.js"></script>
